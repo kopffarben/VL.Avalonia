@@ -60,7 +60,11 @@ public class ChannelTwoWayBinding<TProperty>
 
                 var channelSubscription = channel.Subscribe(value =>
                 {
-                    _control.SetValue(_property, value);
+                    // Skip if the control already holds an equal value to avoid
+                    // a redundant SetValue (which would trigger InvalidateMeasure/
+                    // Arrange and feed back through the controlObservable).
+                    if (!Equals(_control.GetValue(_property), value))
+                        _control.SetValue(_property, value);
                 });
 
                 _subscriptions.Add(controlSubscription);
@@ -101,7 +105,15 @@ public class ChannelTwoWayBinding<TValue, TProperty>
 
                 var channelSubscription = channel.Subscribe(value =>
                 {
-                    _control.SetValue(_property, _convertToProperty(value));
+                    // Round-trip-safe compare: only overwrite the control if the
+                    // current value, projected back into the channel type, would
+                    // actually differ from the incoming channel value. Avoids
+                    // clobbering a high-precision property (e.g. double) with a
+                    // lossy round-trip from a smaller channel type (e.g. float),
+                    // which would trigger a pointless InvalidateArrange cycle.
+                    var currentValue = (TProperty)_control.GetValue(_property);
+                    if (!Equals(_convertToValue(currentValue), value))
+                        _control.SetValue(_property, _convertToProperty(value));
                 });
 
                 _subscriptions.Add(controlSubscription);
@@ -158,7 +170,10 @@ public class ChannelTwoWayBinding<TControl, TValue, TProperty>
 
                 var channelSubscription = channel.Subscribe(value =>
                 {
-                    _propertySetter(_control, _property, value);
+                    // Skip if the control already holds an equal value (see other
+                    // overloads for full rationale — same defensive equality).
+                    if (!Equals(_control.GetValue(_property), value))
+                        _propertySetter(_control, _property, value);
                 });
 
                 _subscriptions.Add(controlSubscription);
