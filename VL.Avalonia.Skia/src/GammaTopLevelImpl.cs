@@ -96,6 +96,7 @@ namespace VL.Avalonia.Skia
 
         internal bool Notify(INotification notification, CallerInfo caller)
         {
+            ThreadDiag.LogFirstNotify();
             var position = new Point(0, 0);
 
             if (notification is NotificationWithPosition n)

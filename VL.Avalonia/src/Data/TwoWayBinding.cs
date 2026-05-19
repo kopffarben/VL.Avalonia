@@ -1,5 +1,6 @@
 ﻿using System.Reactive.Linq;
 using Avalonia;
+using VL.Avalonia.Helpers;
 using VL.Lib.Reactive;
 
 namespace VL.Avalonia.Data
@@ -63,10 +64,23 @@ namespace VL.Avalonia.Data
 
                         // 2. Update Avalonia cleanly
                         var propertyValue = _toProperty(value);
+                        var currentValue = (TProperty?)_control.GetValue(_property);
 
-                        if (!Equals(_control.GetValue(_property), propertyValue))
+                        // Round-trip-safe compare: only overwrite if the current
+                        // control value, projected back to the channel type, would
+                        // differ from the incoming channel value. Avoids clobbering
+                        // a high-precision double Slider.Value with a lossy
+                        // (double)(float)x round-trip that triggers a pointless
+                        // InvalidateArrange cycle on every drag move.
+                        var currentAsChannel = _toChannel(currentValue);
+                        if (!Equals(currentAsChannel, value))
                         {
+                            BindingThreadDiag.LogBindingWrite(_property.Name, currentValue, propertyValue);
                             _control.SetCurrentValue(_property, propertyValue);
+                        }
+                        else
+                        {
+                            BindingThreadDiag.LogBindingSkip(_property.Name, currentValue, propertyValue);
                         }
                     });
             }

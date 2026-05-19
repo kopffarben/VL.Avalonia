@@ -13,16 +13,21 @@ namespace VL.Avalonia.Skia
         // in Avalonia, might it's better to use it?
         public static Application Instance;
 
-        public static void Init() =>
+        public static void Init()
+        {
+            ThreadDiag.LogInit();
+
+            // Route Avalonia's internal traces (Layout/Visual/Property/...) to the VL ILogger.
+            // TEMPORARY for the slider-handle-stuck investigation.
+            global::Avalonia.Logging.Logger.Sink = new AvaloniaLogSink(LogEventLevel.Debug);
+
             Instance ??= AppBuilder
                 .Configure<App>()
                 .UseGammaSkia()
                 .UseGammaSkiaDefaults()
-#if DEBUG
-                .LogToTrace(LogEventLevel.Verbose)
-#endif
                 .SetupWithLifetime(new GammaSkiaWinFormsLifetime())
                 .Instance;
+        }
 
         sealed class App : Application
         {

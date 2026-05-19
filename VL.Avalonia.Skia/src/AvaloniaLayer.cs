@@ -3,6 +3,7 @@ using Avalonia.Controls.Embedding;
 using Avalonia.Rendering.Composition;
 using Avalonia.Skia;
 using Avalonia.Styling;
+using Avalonia.Threading;
 using VL.Core;
 using VL.Core.Import;
 using VL.Lib.IO.Notifications;
@@ -30,6 +31,7 @@ namespace VL.Avalonia.Skia
                 Action<Application>? onSetupApplication = null
         )
         {
+            ThreadDiag.LogLayerCtor();
             AvaloniaInitializer.Init();
 
             var locator = AvaloniaLocator.Current;
@@ -156,15 +158,23 @@ namespace VL.Avalonia.Skia
 
         public void Render(CallerInfo caller)
         {
+            ThreadDiag.LogRender();
             if (!controlRoot.IsInitialized)
             {
                 topLevelImpl.SetClientSize(caller.ViewportBounds.ToAvaloniaRect().Size);
                 controlRoot.Prepare();
                 controlRoot.StartRendering();
             }
+
+            // Pump pending dispatcher jobs (layout passes, compositor commits, ...).
+            // In a standard Avalonia host the platform message loop does this; in our
+            // embedded setup nobody else does. Without it InvalidateMeasure/Arrange
+            // requests queued by Slider.Value (and any other property) changes pile up
+            // forever and the visual never updates — see the "slider handle stuck" bug.
+            Dispatcher.UIThread.RunJobs();
+
             topLevelImpl.Render(caller);
 
-            // TODO: this is a hack to trigger the render loop
             GammaRenderTimer.Instance.TriggerTick(TimeSpan.FromMilliseconds(16));
         }
     }

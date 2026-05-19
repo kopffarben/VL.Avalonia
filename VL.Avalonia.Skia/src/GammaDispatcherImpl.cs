@@ -17,7 +17,15 @@ namespace VL.Avalonia.Skia
         // TODO: Is there a better way to get the current milliseconds?
         public long Now => (long)_clock.Time.Seconds * 1000;
 
-        public bool CurrentThreadIsLoopThread => _mainThread == Thread.CurrentThread;
+        public bool CurrentThreadIsLoopThread
+        {
+            get
+            {
+                var v = _mainThread == Thread.CurrentThread;
+                ThreadDiag.CountLoopThreadCheck(v);
+                return v;
+            }
+        }
 
         public event Action? Signaled;
 
@@ -32,6 +40,7 @@ namespace VL.Avalonia.Skia
             _mainThread = mainThread;
             _clock = clock;
             _synchronizationContext = synchronizationContext;
+            ThreadDiag.LogDispatcherCtor(mainThread);
 
             _invokeSignaled = InvokeSignaled;
             _invokeTimer = InvokeTimer;
@@ -49,9 +58,17 @@ namespace VL.Avalonia.Skia
 
         private void OnTimerTick(object? state) => _synchronizationContext.Post(_invokeTimer, null);
 
-        public void Signal() => _synchronizationContext.Post(_invokeSignaled, null);
+        public void Signal()
+        {
+            ThreadDiag.LogSignal();
+            _synchronizationContext.Post(_invokeSignaled, null);
+        }
 
-        private void InvokeSignaled(object? state) => Signaled?.Invoke();
+        private void InvokeSignaled(object? state)
+        {
+            ThreadDiag.LogSignaledInvoke();
+            Signaled?.Invoke();
+        }
 
         private void InvokeTimer(object? state) => Timer?.Invoke();
     }
