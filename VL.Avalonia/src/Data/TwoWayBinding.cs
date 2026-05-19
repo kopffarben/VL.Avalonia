@@ -63,8 +63,15 @@ namespace VL.Avalonia.Data
 
                         // 2. Update Avalonia cleanly
                         var propertyValue = _toProperty(value);
+                        var currentValue = (TProperty?)_control.GetValue(_property);
 
-                        if (!Equals(_control.GetValue(_property), propertyValue))
+                        // Round-trip-safe compare: only overwrite if the current
+                        // control value, projected back to the channel type, would
+                        // differ from the incoming channel value. Avoids clobbering
+                        // a high-precision double Slider.Value with a lossy
+                        // (double)(float)x round-trip that would trigger a
+                        // pointless InvalidateArrange cycle on every drag move.
+                        if (!Equals(_toChannel(currentValue), value))
                         {
                             _control.SetCurrentValue(_property, propertyValue);
                         }
